@@ -1,0 +1,61 @@
+flowchart LR
+  %% ============ CLUSTERS ============
+  subgraph USER["User Device"]
+    U[End User]
+  end
+
+  subgraph FI["Fi Money"]
+    FIAPP[Fi App\n(Get Passcode)]
+    MCP[(Fi MCP Stream\nwss://mcp.fi.money:8080/mcp/stream)]
+  end
+
+  subgraph APP["Your System"]
+    subgraph FE["Frontend"]
+      WEB[Web App / Dashboard\n(Next.js or similar)]
+    end
+
+    subgraph BE["Backend"]
+      API[Finance Aggregator API\n(REST/GraphQL)]
+      CONN[MCP Connector Service\n(uses passcode → opens stream)]
+      NORM[Normalizer/ETL\n(positions → unified schema)]
+      ALERT[Alerts & Jobs\n(overspend/EMI/goal checks)]
+    end
+
+    subgraph DATA["Data Layer"]
+      SQL[(PostgreSQL\nprofiles, snapshots)]
+      TS[(Mongo/TSDB\nholdings, nav, ticks)]
+      CACHE[(Redis\nhot keys, sessions)]
+    end
+  end
+
+  %% ============ FLOWS ============
+  U -->|Open App| WEB
+  WEB -->|Request "Connect Fi"| API
+  API -->|Show OTP/Passcode prompt| WEB
+  U -->|Retrieve Passcode| FIAPP
+
+  WEB -->|Submit Passcode| API
+  API --> CONN
+  CONN -->|wss connect + auth| MCP
+
+  CONN -->|stream data (net worth,\nassets, liabilities, positions)| NORM
+  NORM --> SQL
+  NORM --> TS
+  NORM --> CACHE
+
+  API --> SQL
+  API --> TS
+  API --> CACHE
+
+  WEB <-->|JSON (dashboards,\ninsights, trends)| API
+  ALERT --> API
+  ALERT -.->|push/email/webhook| U
+
+  %% ============ STYLES ============
+  classDef svc fill:#e6f4ea,stroke:#34a853,stroke-width:1.3,color:#1b5e20,rx:6,ry:6;
+  classDef ds fill:#e8eaed,stroke:#5f6368,stroke-width:1.3,color:#263238,rx:8,ry:8;
+  classDef edge fill:#ffffff,stroke:#1a73e8,stroke-width:1.5,color:#0d47a1,rx:6,ry:6;
+  class API,CONN,NORM,ALERT,WEB svc
+  class SQL,TS,CACHE ds
+  class U edge
+  class MCP,FIAPP edge
