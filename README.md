@@ -175,4 +175,4 @@ Pull requests are welcome! Please open an issue to discuss major changes first.
 ---
 
 ## 📄 License
-MIT © Your Name
+MIT © Prajwal V
